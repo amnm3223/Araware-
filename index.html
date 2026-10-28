@@ -1,0 +1,774 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>子供の「現れ」記録アプリ</title>
+    <!-- Tailwind CSS -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    <!-- FontAwesome icons -->
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <!-- Google Fonts -->
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=Noto+Sans+JP:wght@400;500;700&display=swap" rel="stylesheet">
+    <style>
+        body {
+            font-family: 'Noto Sans JP', 'Inter', sans-serif;
+            background-color: #f3f4f6;
+        }
+        /* カスタムスクロールバー */
+        ::-webkit-scrollbar {
+            width: 6px;
+            height: 6px;
+        }
+        ::-webkit-scrollbar-track {
+            background: #f1f1f1;
+            border-radius: 4px;
+        }
+        ::-webkit-scrollbar-thumb {
+            background: #cbd5e1;
+            border-radius: 4px;
+        }
+        ::-webkit-scrollbar-thumb:hover {
+            background: #94a3b8;
+        }
+        .active-tab {
+            border-bottom: 3px solid #3b82f6;
+            color: #2563eb;
+            font-weight: 700;
+        }
+    </style>
+</head>
+<body class="text-slate-800 min-h-screen flex flex-col justify-between">
+
+    <!-- ヘッダー -->
+    <header class="bg-indigo-600 text-white shadow-md sticky top-0 z-50">
+        <div class="max-w-4xl mx-auto px-4 py-3 flex justify-between items-center">
+            <div class="flex items-center space-x-2">
+                <i class="fa-solid fa-child-reaching text-2xl text-yellow-300"></i>
+                <h1 class="text-lg md:text-xl font-bold tracking-wide">子供の現れ記録帳</h1>
+            </div>
+            <div class="text-xs bg-indigo-700 hover:bg-indigo-800 px-3 py-1.5 rounded-full cursor-pointer transition flex items-center gap-1" onclick="switchTab('settings')">
+                <i class="fa-solid fa-gear"></i>
+                <span>クラス・シート設定</span>
+            </div>
+        </div>
+        
+        <!-- ナビゲーションタブ -->
+        <div class="bg-white border-b border-slate-200 text-slate-600 flex justify-around text-sm font-medium">
+            <button id="tab-btn-input" onclick="switchTab('input')" class="py-3 px-4 flex-1 text-center active-tab transition flex justify-center items-center gap-2">
+                <i class="fa-solid fa-pen-to-square"></i>
+                <span>記録をつける</span>
+            </button>
+            <button id="tab-btn-history" onclick="switchTab('history')" class="py-3 px-4 flex-1 text-center transition flex justify-center items-center gap-2">
+                <i class="fa-solid fa-clock-rotate-left"></i>
+                <span>記録の一覧・出力</span>
+            </button>
+            <button id="tab-btn-settings" onclick="switchTab('settings')" class="py-3 px-4 flex-1 text-center transition flex justify-center items-center gap-2">
+                <i class="fa-solid fa-sliders"></i>
+                <span>設定名簿・フレーズ</span>
+            </button>
+        </div>
+    </header>
+
+    <!-- メインコンテンツ -->
+    <main class="max-w-4xl mx-auto w-full p-4 flex-1">
+
+        <!-- ==================== 1. 入力画面 ==================== -->
+        <section id="tab-input" class="space-y-6">
+            
+            <!-- 通知トースト -->
+            <div id="toast-message" class="hidden bg-emerald-500 text-white px-4 py-3 rounded-xl shadow-lg flex justify-between items-center transition-all duration-300 transform">
+                <div class="flex items-center gap-2">
+                    <i class="fa-solid fa-circle-check text-xl"></i>
+                    <span id="toast-text" class="font-bold text-sm">記録を登録しました！</span>
+                </div>
+                <button onclick="hideToast()" class="text-white hover:text-slate-200 text-lg font-bold">&times;</button>
+            </div>
+
+            <!-- ステップ1: 児童選択 -->
+            <div class="bg-white p-4 md:p-5 rounded-2xl shadow-sm border border-slate-200">
+                <div class="flex justify-between items-center mb-3">
+                    <label class="block font-bold text-slate-700 flex items-center gap-2">
+                        <span class="bg-indigo-100 text-indigo-700 w-6 h-6 rounded-full flex items-center justify-center text-xs">1</span>
+                        児童を選択
+                    </label>
+                    <span id="selected-student-display" class="text-sm font-bold text-indigo-600 bg-indigo-50 px-3 py-1 rounded-full border border-indigo-100">未選択</span>
+                </div>
+
+                <!-- 児童検索・フィルター -->
+                <div class="mb-3">
+                    <input type="text" id="student-search" placeholder="名前や出席番号で検索..." class="w-full text-sm px-3 py-2 border border-slate-300 rounded-lg focus:ring-2 focus:ring-indigo-400 focus:outline-none" oninput="filterStudents()">
+                </div>
+
+                <!-- 児童リスト (ボタン型でワンタップ選択) -->
+                <div id="student-grid" class="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 gap-2 max-h-48 overflow-y-auto p-1">
+                    <!-- JSで動的生成 -->
+                </div>
+            </div>
+
+            <!-- ステップ2: 教科・領域選択 -->
+            <div class="bg-white p-4 md:p-5 rounded-2xl shadow-sm border border-slate-200">
+                <div class="flex justify-between items-center mb-3">
+                    <label class="block font-bold text-slate-700 flex items-center gap-2">
+                        <span class="bg-indigo-100 text-indigo-700 w-6 h-6 rounded-full flex items-center justify-center text-xs">2</span>
+                        教科・活動領域を選択
+                    </label>
+                    <span id="selected-subject-display" class="text-sm font-bold text-emerald-600 bg-emerald-50 px-3 py-1 rounded-full border border-emerald-100">国語</span>
+                </div>
+
+                <!-- 教科タグボタン -->
+                <div id="subject-grid" class="flex flex-wrap gap-2">
+                    <!-- JSで動的生成 -->
+                </div>
+            </div>
+
+            <!-- ステップ3: 現れの内容入力 -->
+            <div class="bg-white p-4 md:p-5 rounded-2xl shadow-sm border border-slate-200 space-y-4">
+                <div class="flex justify-between items-center">
+                    <label class="block font-bold text-slate-700 flex items-center gap-2">
+                        <span class="bg-indigo-100 text-indigo-700 w-6 h-6 rounded-full flex items-center justify-center text-xs">3</span>
+                        どんな現れ（発言・行動・変容など）があったか
+                    </label>
+                    <input type="date" id="record-date" class="text-xs bg-slate-100 text-slate-700 px-2 py-1 rounded-lg border border-slate-300">
+                </div>
+
+                <!-- クイックフレーズ（定型文タップ入力） -->
+                <div>
+                    <div class="flex justify-between items-center mb-1">
+                        <span class="text-xs text-slate-500 font-medium">よく使うキーワード（タップで入力補助）:</span>
+                        <button onclick="switchTab('settings')" class="text-[11px] text-indigo-600 hover:underline">
+                            <i class="fa-solid fa-pen text-[10px]"></i> キーワード編集
+                        </button>
+                    </div>
+                    <div id="quick-phrase-list" class="flex flex-wrap gap-1.5 max-h-28 overflow-y-auto p-0.5">
+                        <!-- JSで動的生成 -->
+                    </div>
+                </div>
+
+                <!-- フリーテキスト -->
+                <div>
+                    <textarea id="record-content" rows="4" placeholder="具体的な発言内容、行動、考えの工夫などを記述..." class="w-full p-3 border border-slate-300 rounded-xl focus:ring-2 focus:ring-indigo-400 focus:outline-none text-slate-800 text-sm leading-relaxed"></textarea>
+                </div>
+
+                <!-- 評価・観点タグ (任意) -->
+                <div class="flex items-center gap-3">
+                    <span class="text-xs font-bold text-slate-500">観点メモ:</span>
+                    <select id="record-tag" class="text-xs bg-slate-50 border border-slate-300 rounded-lg p-1.5 text-slate-700">
+                        <option value="知識・技能">知識・技能</option>
+                        <option value="思考・判断・表現">思考・判断・表現</option>
+                        <option value="主体的に学習に取り組む態度" selected>主体的に学習に取り組む態度</option>
+                        <option value="行動・生活・その他">行動・生活・その他</option>
+                    </select>
+                </div>
+
+                <!-- 登録・スプレッドシート送信ボタン -->
+                <div class="pt-2">
+                    <button onclick="saveRecord()" class="w-full bg-indigo-600 hover:bg-indigo-700 active:bg-indigo-800 text-white font-bold py-3.5 px-4 rounded-xl shadow-md hover:shadow-lg transition flex justify-center items-center gap-2 text-base">
+                        <i class="fa-solid fa-paper-plane"></i>
+                        <span>記録を保存・スプレッドシートに送信</span>
+                    </button>
+                </div>
+            </div>
+        </section>
+
+        <!-- ==================== 2. 履歴・出力画面 ==================== -->
+        <section id="tab-history" class="hidden space-y-4">
+            
+            <!-- フィルター＆操作ヘッダー -->
+            <div class="bg-white p-4 rounded-2xl shadow-sm border border-slate-200 flex flex-col md:flex-row justify-between items-stretch md:items-center gap-3">
+                <div class="flex flex-wrap items-center gap-2">
+                    <select id="filter-student" onchange="renderHistory()" class="text-xs bg-slate-100 border border-slate-300 rounded-lg p-2 font-medium">
+                        <option value="">すべての児童</option>
+                    </select>
+                    <select id="filter-subject" onchange="renderHistory()" class="text-xs bg-slate-100 border border-slate-300 rounded-lg p-2 font-medium">
+                        <option value="">すべての教科</option>
+                    </select>
+                </div>
+
+                <div class="flex items-center gap-2">
+                    <button onclick="copyToClipboard()" class="flex-1 md:flex-none text-xs bg-emerald-600 hover:bg-emerald-700 text-white font-bold py-2 px-3 rounded-lg transition flex items-center justify-center gap-1">
+                        <i class="fa-solid fa-copy"></i>
+                        <span>スプレッドシート用にコピー</span>
+                    </button>
+                    <button onclick="downloadCSV()" class="flex-1 md:flex-none text-xs bg-slate-700 hover:bg-slate-800 text-white font-bold py-2 px-3 rounded-lg transition flex items-center justify-center gap-1">
+                        <i class="fa-solid fa-file-csv"></i>
+                        <span>CSV出力</span>
+                    </button>
+                </div>
+            </div>
+
+            <!-- 履歴リスト表示 -->
+            <div id="history-container" class="space-y-3">
+                <!-- JSで動的生成 -->
+            </div>
+        </section>
+
+        <!-- ==================== 3. 設定画面 ==================== -->
+        <section id="tab-settings" class="hidden space-y-6">
+            
+            <!-- Google Apps Script (GAS) 連携設定 -->
+            <div class="bg-white p-5 rounded-2xl shadow-sm border border-slate-200 space-y-3">
+                <h2 class="font-bold text-slate-800 flex items-center gap-2">
+                    <i class="fa-solid fa-file-excel text-emerald-600"></i>
+                    Googleスプレッドシート連携 (GAS WebApp URL)
+                </h2>
+                <p class="text-xs text-slate-500 leading-relaxed">
+                    Googleスプレッドシートの「Apps Script」で作成したウェブアプリURLを設定すると、送信ボタンを押した瞬間にリアルタイムでスプレッドシートに追記されます。（未設定の場合はアプリ内保存とCSV出力をご利用いただけます）
+                </p>
+                <div>
+                    <input type="url" id="gas-url" placeholder="https://script.google.com/macros/s/.../exec" class="w-full text-xs p-2.5 border border-slate-300 rounded-lg focus:ring-2 focus:ring-indigo-400 focus:outline-none">
+                </div>
+                <div class="flex justify-between items-center">
+                    <button onclick="saveGasUrl()" class="text-xs bg-indigo-600 hover:bg-indigo-700 text-white font-bold py-2 px-4 rounded-lg transition">
+                        URLを保存
+                    </button>
+                    <button onclick="toggleGasGuide()" class="text-xs text-indigo-600 hover:underline">
+                        連携スクリプトの簡単な作り方ガイド <i class="fa-solid fa-circle-question"></i>
+                    </button>
+                </div>
+
+                <!-- スクリプトガイド表示領域 -->
+                <div id="gas-guide" class="hidden bg-slate-50 p-3 rounded-xl border border-slate-200 text-xs space-y-2 text-slate-700">
+                    <p class="font-bold">【Google Apps Scriptの設定方法】</p>
+                    <ol class="list-decimal list-inside space-y-1 text-slate-600">
+                        <li>スプレッドシートを開き、「拡張機能」>「Apps Script」を開く。</li>
+                        <li>コードを全消去し、以下のコードを貼り付けて保存する。</li>
+                    </ol>
+                    <pre class="bg-slate-800 text-emerald-400 p-2 rounded text-[10px] overflow-x-auto font-mono">
+function doPost(e) {
+  var sheet = SpreadsheetApp.getActiveSpreadsheet().getActiveSheet();
+  var data = JSON.parse(e.postData.contents);
+  sheet.appendRow([data.date, data.student, data.subject, data.tag, data.content]);
+  return ContentService.createTextOutput("Success");
+}</pre>
+                    <ol start="3" class="list-decimal list-inside space-y-1 text-slate-600">
+                        <li>右上の「デプロイ」>「新しいデプロイ」をクリック。</li>
+                        <li>種類で「ウェブアプリ」を選択。アクセスできるユーザーを「全員」にしてデプロイ。</li>
+                        <li>発行された「ウェブアプリURL」を上の入力欄に貼り付けて保存してください。</li>
+                    </ol>
+                </div>
+            </div>
+
+            <!-- キーワード（定型文）設定 -->
+            <div class="bg-white p-5 rounded-2xl shadow-sm border border-slate-200 space-y-3">
+                <h2 class="font-bold text-slate-800 flex items-center gap-2">
+                    <i class="fa-solid fa-tags text-amber-500"></i>
+                    よく使うキーワード（定型文）の編集
+                </h2>
+                <p class="text-xs text-slate-500">記録入力画面でワンタップ入力できる定型文フレーズを設定します。（1行に1つ）</p>
+                <textarea id="phrases-input" rows="6" class="w-full p-3 text-xs border border-slate-300 rounded-xl focus:ring-2 focus:ring-indigo-400 focus:outline-none font-mono leading-relaxed" placeholder="主体的に課題に取り組んでいた。&#10;友達の意見をしっかり聞いて協力していた。&#10;自分の言葉で分かりやすく理由を説明できた。"></textarea>
+                <button onclick="savePhrasesConfig()" class="text-xs bg-amber-600 hover:bg-amber-700 text-white font-bold py-2 px-4 rounded-lg transition">
+                    キーワード設定を保存
+                </button>
+            </div>
+
+            <!-- 名簿設定 -->
+            <div class="bg-white p-5 rounded-2xl shadow-sm border border-slate-200 space-y-3">
+                <h2 class="font-bold text-slate-800 flex items-center gap-2">
+                    <i class="fa-solid fa-users text-indigo-600"></i>
+                    クラス児童名簿の登録
+                </h2>
+                <p class="text-xs text-slate-500">1行に1人ずつ児童の名前を入力してください（例: 01 青木 太郎）。</p>
+                <textarea id="students-input" rows="8" class="w-full p-3 text-xs border border-slate-300 rounded-xl focus:ring-2 focus:ring-indigo-400 focus:outline-none font-mono leading-relaxed" placeholder="01 青木 太郎&#10;02 井上 花子&#10;03 上野 健太"></textarea>
+                <button onclick="saveStudentsConfig()" class="text-xs bg-indigo-600 hover:bg-indigo-700 text-white font-bold py-2 px-4 rounded-lg transition">
+                    名簿を保存更新
+                </button>
+            </div>
+
+            <!-- 教科・活動領域設定 -->
+            <div class="bg-white p-5 rounded-2xl shadow-sm border border-slate-200 space-y-3">
+                <h2 class="font-bold text-slate-800 flex items-center gap-2">
+                    <i class="fa-solid fa-book text-emerald-600"></i>
+                    教科・領域リストの設定
+                </h2>
+                <p class="text-xs text-slate-500">カンマ（ , ）区切りで教科や領域を追加できます。</p>
+                <input type="text" id="subjects-input" class="w-full text-xs p-2.5 border border-slate-300 rounded-lg focus:ring-2 focus:ring-indigo-400 focus:outline-none">
+                <button onclick="saveSubjectsConfig()" class="text-xs bg-emerald-600 hover:bg-emerald-700 text-white font-bold py-2 px-4 rounded-lg transition">
+                    教科設定を保存
+                </button>
+            </div>
+
+            <!-- データ管理 -->
+            <div class="bg-white p-5 rounded-2xl shadow-sm border border-slate-200 space-y-3">
+                <h2 class="font-bold text-slate-800 flex items-center gap-2 text-rose-600">
+                    <i class="fa-solid fa-triangle-exclamation"></i>
+                    データクリア・初期化
+                </h2>
+                <p class="text-xs text-slate-500">この端末に保存されている「現れの記録」を消去します。</p>
+                <button onclick="clearAllData()" class="text-xs bg-rose-100 hover:bg-rose-200 text-rose-700 font-bold py-2 px-4 rounded-lg transition border border-rose-200">
+                    記録データを全件削除
+                </button>
+            </div>
+
+        </section>
+
+    </main>
+
+    <!-- フッター -->
+    <footer class="bg-slate-100 border-t border-slate-200 py-3 text-center text-xs text-slate-500">
+        児童の現れ・エピソード記録アプリ &copy; 2026
+    </footer>
+
+    <!-- カスタムモーダル（alert/confirm代替） -->
+    <div id="custom-modal" class="hidden fixed inset-0 bg-slate-900/40 backdrop-blur-sm z-50 flex justify-center items-center p-4">
+        <div class="bg-white rounded-2xl max-w-sm w-full p-5 shadow-xl space-y-4">
+            <h3 id="modal-title" class="font-bold text-slate-800 text-base">確認</h3>
+            <p id="modal-body" class="text-xs text-slate-600 leading-relaxed">処理を実行しますか？</p>
+            <div class="flex justify-end gap-2 pt-2">
+                <button id="modal-cancel-btn" onclick="closeModal()" class="text-xs px-3 py-2 rounded-lg bg-slate-100 hover:bg-slate-200 text-slate-700 font-medium">キャンセル</button>
+                <button id="modal-ok-btn" class="text-xs px-3 py-2 rounded-lg bg-indigo-600 hover:bg-indigo-700 text-white font-bold">実行</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- JS ロジック -->
+    <script>
+        // --- 初期データ定義 ---
+        const DEFAULT_STUDENTS = [
+            "01 相沢 拓海", "02 伊藤 美咲", "03 上田 蓮", "04 遠藤 葵",
+            "05 太田 翔太", "06 岡田 結衣", "07 加藤 陸", "08 木村 陽菜",
+            "09 佐々木 颯太", "10 佐藤 莉子"
+        ];
+
+        const DEFAULT_SUBJECTS = ["国語", "社会", "算数", "理科", "生活", "音楽", "図工", "体育", "道徳", "総合", "特別活動", "行動の記録"];
+
+        const DEFAULT_PHRASES = [
+            "主体的に課題に取り組んでいた。",
+            "友達の意見をしっかり聞いて協力していた。",
+            "自分の言葉で分かりやすく理由を説明できた。",
+            "つまずいている友達に優しく教えていた。",
+            "振り返りで「〜がわかった」と深く記述していた。"
+        ];
+
+        // --- アプリ状態管理 ---
+        let students = JSON.parse(localStorage.getItem('app_students')) || DEFAULT_STUDENTS;
+        let subjects = JSON.parse(localStorage.getItem('app_subjects')) || DEFAULT_SUBJECTS;
+        let phrases = JSON.parse(localStorage.getItem('app_phrases')) || DEFAULT_PHRASES;
+        let records = JSON.parse(localStorage.getItem('app_records')) || [];
+        let gasUrl = localStorage.getItem('app_gas_url') || "";
+
+        let selectedStudent = "";
+        let selectedSubject = subjects[0] || "国語";
+
+        // --- 初期化処理 ---
+        window.onload = function() {
+            // 本日の日付をセット
+            const today = new Date().toISOString().split('T')[0];
+            document.getElementById('record-date').value = today;
+
+            // GAS URL設定反映
+            document.getElementById('gas-url').value = gasUrl;
+
+            // 設定フォームの初期表示設定
+            document.getElementById('students-input').value = students.join('\n');
+            document.getElementById('subjects-input').value = subjects.join(', ');
+            document.getElementById('phrases-input').value = phrases.join('\n');
+
+            // UI生成
+            renderStudentGrid();
+            renderSubjectGrid();
+            renderQuickPhrases();
+            populateFilterOptions();
+            renderHistory();
+        };
+
+        // --- タブ切り替え ---
+        function switchTab(tabName) {
+            ['input', 'history', 'settings'].forEach(tab => {
+                document.getElementById(`tab-${tab}`).classList.add('hidden');
+                document.getElementById(`tab-btn-${tab}`).classList.remove('active-tab');
+            });
+            document.getElementById(`tab-${tabName}`).classList.remove('hidden');
+            document.getElementById(`tab-btn-${tabName}`).classList.add('active-tab');
+
+            if (tabName === 'history') {
+                renderHistory();
+            }
+        }
+
+        // --- 生徒グリッドレンダリング ---
+        function renderStudentGrid() {
+            const grid = document.getElementById('student-grid');
+            grid.innerHTML = '';
+
+            students.forEach(student => {
+                const isSelected = student === selectedStudent;
+                const btn = document.createElement('button');
+                btn.type = 'button';
+                btn.className = `p-2.5 rounded-xl text-xs text-left font-medium truncate transition flex items-center justify-between border ${
+                    isSelected 
+                    ? 'bg-indigo-600 text-white border-indigo-600 shadow-sm' 
+                    : 'bg-slate-50 text-slate-700 border-slate-200 hover:bg-indigo-50 hover:border-indigo-200'
+                }`;
+                btn.onclick = () => selectStudent(student);
+                btn.innerHTML = `
+                    <span class="truncate">${student}</span>
+                    ${isSelected ? '<i class="fa-solid fa-circle-check text-xs"></i>' : ''}
+                `;
+                grid.appendChild(btn);
+            });
+
+            document.getElementById('selected-student-display').innerText = selectedStudent || '未選択';
+        }
+
+        function selectStudent(student) {
+            selectedStudent = student;
+            renderStudentGrid();
+        }
+
+        function filterStudents() {
+            const query = document.getElementById('student-search').value.toLowerCase();
+            const buttons = document.getElementById('student-grid').querySelectorAll('button');
+            buttons.forEach(btn => {
+                const text = btn.innerText.toLowerCase();
+                if (text.includes(query)) {
+                    btn.classList.remove('hidden');
+                } else {
+                    btn.classList.add('hidden');
+                }
+            });
+        }
+
+        // --- 教科グリッドレンダリング ---
+        function renderSubjectGrid() {
+            const grid = document.getElementById('subject-grid');
+            grid.innerHTML = '';
+
+            subjects.forEach(subject => {
+                const isSelected = subject === selectedSubject;
+                const btn = document.createElement('button');
+                btn.type = 'button';
+                btn.className = `px-3 py-1.5 rounded-lg text-xs font-medium transition border ${
+                    isSelected
+                    ? 'bg-emerald-600 text-white border-emerald-600 shadow-sm'
+                    : 'bg-slate-50 text-slate-700 border-slate-200 hover:bg-emerald-50 hover:border-emerald-200'
+                }`;
+                btn.onclick = () => {
+                    selectedSubject = subject;
+                    renderSubjectGrid();
+                };
+                btn.innerText = subject;
+                grid.appendChild(btn);
+            });
+
+            document.getElementById('selected-subject-display').innerText = selectedSubject;
+        }
+
+        // --- キーワード（フレーズ）ボタンの表示・生成 ---
+        function renderQuickPhrases() {
+            const list = document.getElementById('quick-phrase-list');
+            list.innerHTML = '';
+
+            if (phrases.length === 0) {
+                list.innerHTML = '<span class="text-xs text-slate-400">（「設定名簿・フレーズ」タブからキーワードを登録できます）</span>';
+                return;
+            }
+
+            phrases.forEach(phrase => {
+                const btn = document.createElement('button');
+                btn.type = 'button';
+                btn.className = "text-xs bg-slate-100 hover:bg-indigo-50 hover:text-indigo-600 hover:border-indigo-200 text-slate-700 px-2.5 py-1 rounded-md border border-slate-200 transition text-left";
+                btn.onclick = () => appendPhrase(phrase);
+                btn.innerText = `+ ${phrase}`;
+                list.appendChild(btn);
+            });
+        }
+
+        // --- テキスト入力補助 ---
+        function appendPhrase(phrase) {
+            const textarea = document.getElementById('record-content');
+            if (textarea.value) {
+                textarea.value += ' ' + phrase;
+            } else {
+                textarea.value = phrase;
+            }
+            textarea.focus();
+        }
+
+        // --- 記録保存処理 ---
+        async function saveRecord() {
+            const content = document.getElementById('record-content').value.trim();
+            const date = document.getElementById('record-date').value;
+            const tag = document.getElementById('record-tag').value;
+
+            if (!selectedStudent) {
+                showToast('児童を選択してください。', true);
+                return;
+            }
+
+            if (!content) {
+                showToast('現れの内容を入力してください。', true);
+                return;
+            }
+
+            const recordData = {
+                id: Date.now(),
+                date: date,
+                student: selectedStudent,
+                subject: selectedSubject,
+                tag: tag,
+                content: content
+            };
+
+            // ローカル保存
+            records.unshift(recordData);
+            localStorage.setItem('app_records', JSON.stringify(records));
+
+            // GAS連携処理 (設定されている場合)
+            if (gasUrl) {
+                showToast('スプレッドシートに送信中...');
+                try {
+                    await fetch(gasUrl, {
+                        method: 'POST',
+                        mode: 'no-cors',
+                        headers: {
+                            'Content-Type': 'application/json'
+                        },
+                        body: JSON.stringify(recordData)
+                    });
+                    showToast('記録を保存＆スプレッドシートに送信しました！');
+                } catch (e) {
+                    console.error(e);
+                    showToast('ローカルに保存しましたがシート送信に失敗しました', true);
+                }
+            } else {
+                showToast('記録を保存しました！');
+            }
+
+            // 入力欄クリア（連続入力しやすくするため生徒は選択維持）
+            document.getElementById('record-content').value = '';
+            populateFilterOptions();
+        }
+
+        // --- トースト通知 ---
+        function showToast(message, isError = false) {
+            const toast = document.getElementById('toast-message');
+            const toastText = document.getElementById('toast-text');
+            
+            toastText.innerText = message;
+            if (isError) {
+                toast.classList.remove('bg-emerald-500');
+                toast.classList.add('bg-rose-500');
+            } else {
+                toast.classList.remove('bg-rose-500');
+                toast.classList.add('bg-emerald-500');
+            }
+
+            toast.classList.remove('hidden');
+            setTimeout(() => {
+                hideToast();
+            }, 3500);
+        }
+
+        function hideToast() {
+            document.getElementById('toast-message').classList.add('hidden');
+        }
+
+        // --- 履歴表示・フィルタリング ---
+        function populateFilterOptions() {
+            const studentFilter = document.getElementById('filter-student');
+            const subjectFilter = document.getElementById('filter-subject');
+
+            studentFilter.innerHTML = '<option value="">すべての児童</option>';
+            students.forEach(s => {
+                studentFilter.innerHTML += `<option value="${s}">${s}</option>`;
+            });
+
+            subjectFilter.innerHTML = '<option value="">すべての教科</option>';
+            subjects.forEach(sub => {
+                subjectFilter.innerHTML += `<option value="${sub}">${sub}</option>`;
+            });
+        }
+
+        function renderHistory() {
+            const container = document.getElementById('history-container');
+            const filterStudentVal = document.getElementById('filter-student').value;
+            const filterSubjectVal = document.getElementById('filter-subject').value;
+
+            const filtered = records.filter(r => {
+                const matchStudent = !filterStudentVal || r.student === filterStudentVal;
+                const matchSubject = !filterSubjectVal || r.subject === filterSubjectVal;
+                return matchStudent && matchSubject;
+            });
+
+            if (filtered.length === 0) {
+                container.innerHTML = `
+                    <div class="bg-white p-8 rounded-2xl text-center text-slate-400 border border-slate-200">
+                        <i class="fa-regular fa-folder-open text-3xl mb-2 block"></i>
+                        該当する記録はありません。
+                    </div>
+                `;
+                return;
+            }
+
+            container.innerHTML = '';
+            filtered.forEach(r => {
+                const card = document.createElement('div');
+                card.className = "bg-white p-4 rounded-2xl border border-slate-200 shadow-sm space-y-2 hover:border-slate-300 transition";
+                card.innerHTML = `
+                    <div class="flex justify-between items-start gap-2">
+                        <div class="flex flex-wrap items-center gap-2">
+                            <span class="font-bold text-slate-800 text-sm">${r.student}</span>
+                            <span class="text-xs font-semibold bg-emerald-50 text-emerald-700 px-2 py-0.5 rounded-md border border-emerald-100">${r.subject}</span>
+                            <span class="text-xs bg-slate-100 text-slate-600 px-2 py-0.5 rounded-md">${r.tag}</span>
+                        </div>
+                        <div class="flex items-center gap-2">
+                            <span class="text-xs text-slate-400">${r.date}</span>
+                            <button onclick="deleteRecord(${r.id})" class="text-slate-300 hover:text-rose-500 text-xs transition">
+                                <i class="fa-solid fa-trash-can"></i>
+                            </button>
+                        </div>
+                    </div>
+                    <p class="text-xs text-slate-700 leading-relaxed whitespace-pre-wrap">${escapeHtml(r.content)}</p>
+                `;
+                container.appendChild(card);
+            });
+        }
+
+        function escapeHtml(str) {
+            return str.replace(/[&<>"']/g, function(m) {
+                return { '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#039;' }[m];
+            });
+        }
+
+        // --- 記録削除 ---
+        function deleteRecord(id) {
+            openModal("削除の確認", "この記録を削除してもよろしいですか？", () => {
+                records = records.filter(r => r.id !== id);
+                localStorage.setItem('app_records', JSON.stringify(records));
+                renderHistory();
+                showToast("削除しました");
+            });
+        }
+
+        // --- コピー・CSVデータ出力 ---
+        function copyToClipboard() {
+            if (records.length === 0) {
+                showToast("コピーするデータがありません", true);
+                return;
+            }
+
+            // スプレッドシートに直接貼り付けられるタブ区切りテキスト (TSV)
+            let tsvContent = "日付\t児童名\t教科・領域\t評価観点\t内容\n";
+            records.forEach(r => {
+                const cleanContent = r.content.replace(/\n/g, ' ');
+                tsvContent += `${r.date}\t${r.student}\t${r.subject}\t${r.tag}\t${cleanContent}\n`;
+            });
+
+            // iFrame対応のクリップボード書き込み
+            const textarea = document.createElement('textarea');
+            textarea.value = tsvContent;
+            document.body.appendChild(textarea);
+            textarea.select();
+            try {
+                document.execCommand('copy');
+                showToast("スプレッドシート用テキストをコピーしました！そのままCtrl+Vで貼付可能です");
+            } catch (err) {
+                showToast("コピーに失敗しました", true);
+            }
+            document.body.removeChild(textarea);
+        }
+
+        function downloadCSV() {
+            if (records.length === 0) {
+                showToast("出力するデータがありません", true);
+                return;
+            }
+
+            let csvContent = "\uFEFF日付,児童名,教科・領域,評価観点,内容\n";
+            records.forEach(r => {
+                const cleanContent = `"${r.content.replace(/"/g, '""')}"`;
+                csvContent += `${r.date},${r.student},${r.subject},${r.tag},${cleanContent}\n`;
+            });
+
+            const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
+            const url = URL.createObjectURL(blob);
+            const a = document.createElement('a');
+            a.href = url;
+            a.download = `kodomo_aware_records_${new Date().toISOString().split('T')[0]}.csv`;
+            a.click();
+            URL.revokeObjectURL(url);
+            showToast("CSVをダウンロードしました");
+        }
+
+        // --- 設定の保存・更新 ---
+        function saveGasUrl() {
+            gasUrl = document.getElementById('gas-url').value.trim();
+            localStorage.setItem('app_gas_url', gasUrl);
+            showToast("GAS WebApp URLを保存しました");
+        }
+
+        function toggleGasGuide() {
+            const guide = document.getElementById('gas-guide');
+            guide.classList.toggle('hidden');
+        }
+
+        function savePhrasesConfig() {
+            const text = document.getElementById('phrases-input').value;
+            const lines = text.split('\n').map(s => s.trim()).filter(s => s.length > 0);
+            phrases = lines;
+            localStorage.setItem('app_phrases', JSON.stringify(phrases));
+            renderQuickPhrases();
+            showToast("よく使うキーワードを更新しました");
+        }
+
+        function saveStudentsConfig() {
+            const text = document.getElementById('students-input').value;
+            const lines = text.split('\n').map(s => s.trim()).filter(s => s.length > 0);
+            if (lines.length === 0) {
+                showToast("少なくとも1人の名前を入力してください", true);
+                return;
+            }
+            students = lines;
+            localStorage.setItem('app_students', JSON.stringify(students));
+            renderStudentGrid();
+            populateFilterOptions();
+            showToast("名簿を更新しました");
+        }
+
+        function saveSubjectsConfig() {
+            const text = document.getElementById('subjects-input').value;
+            const items = text.split(',').map(s => s.trim()).filter(s => s.length > 0);
+            if (items.length === 0) {
+                showToast("少なくとも1つの教科を入力してください", true);
+                return;
+            }
+            subjects = items;
+            localStorage.setItem('app_subjects', JSON.stringify(subjects));
+            selectedSubject = subjects[0];
+            renderSubjectGrid();
+            populateFilterOptions();
+            showToast("教科リストを更新しました");
+        }
+
+        function clearAllData() {
+            openModal("記録データの全件削除", "これまでに記録したデータがすべて消去されます。本当によろしいですか？", () => {
+                records = [];
+                localStorage.removeItem('app_records');
+                renderHistory();
+                showToast("全件データを削除しました");
+            });
+        }
+
+        // --- モーダル制御 ---
+        let currentModalConfirmHandler = null;
+
+        function openModal(title, text, onConfirm) {
+            document.getElementById('modal-title').innerText = title;
+            document.getElementById('modal-body').innerText = text;
+            currentModalConfirmHandler = onConfirm;
+            document.getElementById('custom-modal').classList.remove('hidden');
+
+            document.getElementById('modal-ok-btn').onclick = function() {
+                if (currentModalConfirmHandler) currentModalConfirmHandler();
+                closeModal();
+            };
+        }
+
+        function closeModal() {
+            document.getElementById('custom-modal').classList.add('hidden');
+            currentModalConfirmHandler = null;
+        }
+    </script>
+</body>
+</html>
